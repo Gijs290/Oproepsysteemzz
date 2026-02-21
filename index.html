@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Zorg Systeem</title>
+<style>
+/* 🌙 Algemene styling */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0B0F2A;
+    color: #FFF;
+}
+h1, h2, h3 { color: #0AF; }
+button {
+    background-color: #0AF;
+    border: none;
+    color: #fff;
+    padding: 10px 20px;
+    margin: 5px 0;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+button:hover { background-color: #08C; }
+input, select { padding: 8px; margin: 5px 0; border-radius: 4px; border: none; width: 100%; }
+
+.container { display: flex; height: 100vh; }
+.menu {
+    width: 250px;
+    background-color: #0C134F;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+.menu h2 {
+    color: #0AF;
+    margin-bottom: 30px;
+    text-align: center;
+}
+.menu button { width: 100%; display: block; margin-bottom: 15px; font-size: 16px; }
+
+.main {
+    flex-grow: 1;
+    padding: 30px;
+    overflow-y: auto;
+}
+
+.patient-card {
+    background-color: #141B50;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+}
+
+.info-bar {
+    background-color: #0A1230;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-around;
+}
+
+.hidden { display: none; }
+
+.search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+
+#melding {
+    background-color: #08C;
+    color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    display: none;
+}
+
+label { display:block; margin-top:10px; font-weight: bold; color: #0AF; }
+
+/* Vakjes voor gemiddelde wachttijd */
+.stat-box {
+    background-color: #141B50;
+    padding: 10px 15px;
+    border-radius: 6px;
+    text-align: center;
+    min-width: 120px;
+}
+.stat-title { font-size: 14px; color: #0AF; margin-bottom: 5px; }
+.stat-value { font-size: 16px; font-weight: bold; }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Menu -->
+    <div class="menu">
+        <h2>Zorg Systeem</h2>
+        <button onclick="showPage('oproep')">Oproepsysteem</button>
+        <button onclick="showPage('database')">Patiënten Database</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="main">
+
+        <!-- Login -->
+        <div id="login">
+            <h2>Inloggen met Token</h2>
+            <input type="text" id="tokenInput" placeholder="Voer token in">
+            <button onclick="checkToken()">Inloggen</button>
+            <p id="loginMsg"></p>
+        </div>
+
+        <!-- Oproepsysteem -->
+        <div id="oproep" class="hidden">
+            <h2>Oproepsysteem</h2>
+
+            <div class="info-bar">
+                <div class="stat-box">
+                    <div class="stat-title">Gem. wachttijd</div>
+                    <div id="avgTime" class="stat-value">0 min</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Aantal in wachtrij</div>
+                    <div id="queueCount" class="stat-value">0</div>
+                </div>
+            </div>
+
+            <h3>Nieuwe patiënt registreren</h3>
+            <label>Naam patiënt:</label>
+            <input type="text" id="naam" placeholder="">
+            <label>ID:</label>
+            <input type="text" id="id" placeholder="">
+            <label>Geslacht:</label>
+            <select id="geslacht">
+                <option>Man</option>
+                <option>Vrouw</option>
+            </select>
+            <label>Reden afspraak:</label>
+            <input type="text" id="reden" placeholder="">
+            <label>Medisch rapport aanwezig:</label>
+            <select id="rapport">
+                <option>Ja</option>
+                <option>Nee</option>
+            </select>
+            <button onclick="voegToe()">Registreren</button>
+
+            <hr>
+
+            <h3>Wachtrij</h3>
+            <button onclick="volgende()">Volgende patiënt</button>
+
+            <div id="melding"></div>
+            <div id="wachtrijLijst"></div>
+        </div>
+
+        <!-- Database -->
+        <div id="database" class="hidden">
+            <h2>Patiënten Database</h2>
+            <h3>Nieuwe patiënt registreren (Database)</h3>
+            <label>Naam patiënt:</label>
+            <input type="text" id="dbNaam">
+            <label>ID:</label>
+            <input type="text" id="dbId">
+            <label>Geslacht:</label>
+            <select id="dbGeslacht">
+                <option>Man</option>
+                <option>Vrouw</option>
+            </select>
+            <label>Reden afspraak:</label>
+            <input type="text" id="dbReden">
+            <label>Medisch rapport aanwezig:</label>
+            <select id="dbRapport">
+                <option>Ja</option>
+                <option>Nee</option>
+            </select>
+            <button onclick="voegDb()">Toevoegen aan Database</button>
+
+            <hr>
+            <h3>Alle geregistreerde patiënten</h3>
+            <div id="databaseLijst"></div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// 🔒 Login
+let correctToken = "ZZ3194";
+let loggedIn = false;
+
+function checkToken() {
+    let t = document.getElementById("tokenInput").value.trim();
+    if(t === correctToken) {
+        loggedIn = true;
+        document.getElementById("login").classList.add("hidden");
+        showPage('oproep');
+    } else {
+        document.getElementById("loginMsg").innerText = "Token ongeldig!";
+    }
+}
+
+// Lijsten
+let wachtrij = [];
+let database = [];
+
+// Toevoegen in Oproepsysteem
+function voegToe() {
+    if(!loggedIn) { alert("Geen toegang!"); return; }
+    let p = {
+        naam: document.getElementById("naam").value,
+        id: document.getElementById("id").value,
+        geslacht: document.getElementById("geslacht").value,
+        reden: document.getElementById("reden").value,
+        rapport: document.getElementById("rapport").value
+    };
+    wachtrij.push(p);
+    database.push(p); // ook bewaren in database
+    toonWachtrij();
+    updateStats();
+    clearOproepForm();
+}
+
+// Toevoegen in Database
+function voegDb() {
+    if(!loggedIn) { alert("Geen toegang!"); return; }
+    let p = {
+        naam: document.getElementById("dbNaam").value,
+        id: document.getElementById("dbId").value,
+        geslacht: document.getElementById("dbGeslacht").value,
+        reden: document.getElementById("dbReden").value,
+        rapport: document.getElementById("dbRapport").value
+    };
+    database.push(p);
+    toonDatabase();
+    clearDbForm();
+}
+
+// Clear forms
+function clearOproepForm() {
+    document.getElementById("naam").value="";
+    document.getElementById("id").value="";
+    document.getElementById("reden").value="";
+}
+function clearDbForm() {
+    document.getElementById("dbNaam").value="";
+    document.getElementById("dbId").value="";
+    document.getElementById("dbReden").value="";
+}
+
+// Wachtrij tonen
+function toonWachtrij() {
+    let div = document.getElementById("wachtrijLijst");
+    div.innerHTML = "";
+    wachtrij.forEach(p => {
+        div.innerHTML += `<div class="patient-card"><b>${p.naam}</b> (${p.id})<br>Reden: ${p.reden} | Rapport: ${p.rapport}</div>`;
+    });
+}
+
+// Volgende patiënt oproepen
+function volgende() {
+    if(!loggedIn) { alert("Geen toegang!"); return; }
+    if(wachtrij.length === 0) { alert("Geen patiënten!"); return; }
+    let huidige = wachtrij.shift();
+    toonWachtrij();
+    updateStats();
+    // Melding
+    let melding = document.getElementById("melding");
+    melding.innerHTML = `<b>${huidige.naam}</b> is aan de beurt!<br>Reden: ${huidige.reden}<br>Medisch rapport: ${huidige.rapport}`;
+    melding.style.display = "block";
+}
+
+// Statistieken
+function updateStats() {
+    let avgTime = wachtrij.length * 5; // stel 5 min gemiddeld
+    document.getElementById("avgTime").innerText = avgTime + " min";
+    document.getElementById("queueCount").innerText = wachtrij.length;
+}
+
+// Database tonen
+function toonDatabase() {
+    let div = document.getElementById("databaseLijst");
+    div.innerHTML = "";
+    database.forEach(p => {
+        div.innerHTML += `<div class="patient-card"><b>${p.naam}</b> (${p.id})<br>Reden: ${p.reden} | Rapport: ${p.rapport} | Geslacht: ${p.geslacht}</div>`;
+    });
+}
+
+// Pagina wisselen
+function showPage(page) {
+    if(!loggedIn) { alert("Geen toegang!"); return; }
+    document.getElementById("oproep").classList.add("hidden");
+    document.getElementById("database").classList.add("hidden");
+    document.getElementById(page).classList.remove("hidden");
+    if(page === 'database') toonDatabase();
+    if(page === 'oproep') toonWachtrij();
+}
+</script>
+
+</body>
+</html>
